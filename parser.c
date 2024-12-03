@@ -12,6 +12,19 @@ int error_count = 0;
 
 #define COLUMN_SIZE 20
 
+void printsymtab()
+{
+    printf("\n\n================================================================================================================\n");
+    
+    printf("symtab_next_entry: %d\n", symtab_next_entry);
+    
+    printf("%-*s | %-*s | %-*s | %-*s | %-*s | %-*s\n", COLUMN_SIZE, "NAME" , COLUMN_SIZE, "OBJTYPE", COLUMN_SIZE, "TYPE", COLUMN_SIZE, "LEXLEVEL", COLUMN_SIZE, "PARMFLAG", COLUMN_SIZE, "REFFLAG");
+    for (int i = 0; i < symtab_next_entry; i++){
+        printf("%-*s | %-*d | %-*d | %-*d | %-*d | %-*d\n", COLUMN_SIZE, symtab[i].name, COLUMN_SIZE, symtab[i].objtype, COLUMN_SIZE, symtab[i].type, COLUMN_SIZE, symtab[i].lexlevel, COLUMN_SIZE, symtab[i].parmflag, COLUMN_SIZE, symtab[i].referenceflag);
+    }
+    printf("================================================================================================================\n\n");
+}
+
 void program(void)
 {
     match(PROGRAM);
@@ -24,8 +37,12 @@ void program(void)
     match(';');
 
     block();
-
+    symtab_next_entry = 0;
+    // symtab_next_entry = 0;
     printf("\n\n================================================================================================================\n");
+    
+    printf("symtab_next_entry: %d\n", symtab_next_entry);
+    
     printf("%-*s | %-*s | %-*s | %-*s | %-*s | %-*s\n", COLUMN_SIZE, "NAME" , COLUMN_SIZE, "OBJTYPE", COLUMN_SIZE, "TYPE", COLUMN_SIZE, "LEXLEVEL", COLUMN_SIZE, "PARMFLAG", COLUMN_SIZE, "REFFLAG");
     for (int i = 0; i < symtab_next_entry; i++){
         printf("%-*s | %-*d | %-*d | %-*d | %-*d | %-*d\n", COLUMN_SIZE, symtab[i].name, COLUMN_SIZE, symtab[i].objtype, COLUMN_SIZE, symtab[i].type, COLUMN_SIZE, symtab[i].lexlevel, COLUMN_SIZE, symtab[i].parmflag, COLUMN_SIZE, symtab[i].referenceflag);
@@ -43,7 +60,7 @@ _idlist:
 
     if (error_stat)
     {
-        fprintf(stderr, "\tFATAL ERROR: symbol already defined\n");
+        fprintf(stderr, "\tFATAL ERROR: symbol '%s' already defined\n", lexeme);
         error_count++;
     }
 
@@ -98,7 +115,7 @@ void idstmt(void)
     int id_position = symtab_lookup(lexeme, lexlevel);
     if (id_position < 0)
     {
-        fprintf(stderr, "\tFATAL ERROR: symbol not defined\n");
+        fprintf(stderr, "\tFATAL ERROR: symbol '%s' not defined\n", lexeme);
         error_count++;
     }
 
@@ -221,7 +238,7 @@ void factor(void)
 
             if (index_id == -1)
             {
-                fprintf(stderr, "\tFATAL ERROR: symbol not defined\n");
+                fprintf(stderr, "\tFATAL ERROR: symbol '%s' not defined\n", lexeme);
                 error_count++;
             }
 
@@ -265,12 +282,6 @@ void factor(void)
         case NUM:
             match(NUM);
             break;
-        
-        case('('):
-            match('(');
-            expr();
-            match(')');
-            break;
     }
 }
 
@@ -297,9 +308,14 @@ void beginend(void)
 
 void block(void){
     vardef();
-
-    sbprgdef();
+    int local_next_entry = symtab_next_entry;
+    
+    sbprgdef(&local_next_entry); // caso seja um subprograma o nome estará na tabela de simbolos, por isso é necesário incrementar o next_entry
     beginend();
+
+    printsymtab();
+    symtab_next_entry = local_next_entry;
+    printsymtab();
 }
 
 void vardef(void)
@@ -322,106 +338,211 @@ _idlist:
     }
 }
 
-void sbprgdef(){
+/// @brief Defines subprograms (procedures and functions).
+/// @param caller_symtab_next_entry Pointer to the next entry in the caller's context.
+void sbprgdef(int *caller_symtab_next_entry)
+{
+    /*0*/
+    // Declare variables to store whether it's a function, the initial position in the symbol table, and the error status
     int isfunc = 0, local_init_position = 0, error_stat = 0;
+    // Declare a variable to store the current identifier name
     char *current_id_name = NULL;
+    /*0*/
 
+    // While the current token is PROCEDURE or FUNCTION parse the subprogram
     while (lookahead == PROCEDURE || lookahead == FUNCTION){
+        /*1*/
+        // Set the next entry in the symbol table to the caller's next entry
+        symtab_next_entry = *caller_symtab_next_entry;
+        // Increment the caller's next entry
+        (*caller_symtab_next_entry)++;
+        /*1*/
+
+        // Set the isfunc flag if the current token is FUNCTION
         isfunc = (lookahead == FUNCTION);
+
+        // Match the current token (PROCEDURE or FUNCTION) and advance to the next token
         match(lookahead);
+
+        /*0*/
+        // Store the initial position in the symbol table
         local_init_position = symtab_next_entry;
+        /*0*/
+
+        /*1*/
+        // Append the current lexeme to the symbol table and store the error status
         error_stat = symtab_append(lexeme, lexlevel);
+        
+        // If there is an error (symbol already defined)
         if (error_stat)
         {
-            fprintf(stderr, "\tFATAL ERROR: symbol already exists\n");
+            fprintf(stderr, "\tFATAL ERROR: symbol '%s' already defined\n", lexeme);
             error_count++;
         }
+        /*1*/
+
+        // Match the subprogram identifier and advance to the next token
         match(ID);
+
+        // Parse the parameter list
         parmlist();
+
         if (isfunc)
         {
+            /*2*/
+            // Set the object type in the symbol table to TYPE_FUNCTION
             symtab_set_objtype(local_init_position, TYPE_FUNCTION);
+            /*2*/
+
             match(':');
             type();
         }
         else{
+            /*2*/
+            // Set the object type in the symbol table to TYPE_PROCEDURE
             symtab_set_objtype(local_init_position, TYPE_PROCEDURE);
+            /*2*/
         }
+        
         match(';');
+
+        /*3*/
+        // Increment the lexical level before parsing the block
         lexlevel++;
+        /*3*/
+
+        // Parse the block of the subprogram
         block();
+
+        // Match the semicolon and advance to the next token
         match(';');
+
+        /*3*/
+        // Decrement the lexical level after the block is parsed
         lexlevel--;
+        /*3*/
     }
 }
 
-//lexlevel + 1, não deve ser incrementado
+/// @brief Parses the parameter list of a function or procedure.
 void parmlist(void){
-    int ret_type, local_init_position = 0, is_reference = 0;
+    // Declare variables to store the return type, the initial position in the symbol table, and a flag for reference parameters
+    /*0*/
+    int parameters_type, local_init_position = 0, is_reference = 0;
+    /*0*/
+
+     // If the current token is an opening parenthesis
     if (lookahead == '('){
         match('(');
 _parmlist:
+        /*0*/
+        // Reset the reference flag
         is_reference = 0;
+        /*0*/
+
+        // If the current token is the keyword VAR
         if (lookahead == VAR)
         {
             match(VAR);
+            /*0*/
+            // Set the reference flag to true
             is_reference = 1;
+            /*0*/
         }
 
+        /*1*/
+        // Increment the lexical level, the id list needs to be in the next lexical level
         lexlevel++;
+        // Parse the identifier list and store the initial position in the symbol table
         local_init_position = idlist();
+        // Decrement the lexical level
         lexlevel--;
+        /*1*/
 
         match(':');
 
-        ret_type = type();
+        // Determine the type of the parameter
+        /*0*/
+        parameters_type = type();
+        /*0*/
 
-        symtab_set_range_type(local_init_position, ret_type, TYPE_VARIABLE, 1, is_reference);
+        // Set the range type in the symbol table for the parsed identifiers
+        /*2*/
+        symtab_set_range_type(local_init_position, parameters_type, TYPE_VARIABLE, 1, is_reference);
+        /*2*/
 
+        // If the current token is a semicolon
         if (lookahead == ';'){
+            // Match the semicolon and advance to the next token
             match(';');
+            // Go to the _parmlist label to parse more parameters
             goto _parmlist;
         }
 
+        // Match the closing parenthesis and advance to the next token
         match(')');
     }
 }
 
+/// @brief Mathces the current type in the lookahead and advances to the next token.
+/// @return The type in the lookahead.
 int type(void){
-    int auxType = lookahead;
+    int current_type = lookahead;
 
-    switch (auxType)
+    switch (current_type)
     {
+        // If the type is INTEGER, REAL, or DOUBLE
         case INTEGER:
         case REAL:
         case DOUBLE:
+            // Match the current type and advance to the next token
             match(lookahead);
-            return auxType;
+            return current_type;
     
         default:
+            // If the type is not INTEGER, REAL, or DOUBLE than it must be BOOLEAN and advance to the next token
             match(BOOLEAN);
-            return auxType;
+            return current_type;
     }
-
-//     if (lookahead == TYPE){
-//         match(TYPE);
-// _typelist:
-//         match(ID);
-//         match('=');
-//         match(TYPE);
-//         match(';');
-
-//         if (lookahead == ID)
-//             goto _typelist;
-//     }
 }
 
-void match (int expected){
-    if(lookahead == expected){
+/// @brief Matches the current token with the expected token and advances to the next token if they match.
+/// @param expected The expected token to match.
+void match (int expected)
+{
+    // If the current token matches the expected token
+    if(lookahead == expected)
+    {
+         // Get the next token from the source
         lookahead = gettoken(src);
     }
-    else{
-        fprintf(stderr, "\tSyntax error. expected: %d - recieved: %d in line: %d\n", expected, lookahead, linenum);
+    else
+    {
+        // Get the string representation of the expected token
+        const char *expected_str = get_token_to_string(expected);
+        // Get the string representation of the current token
+        const char *lookahead_str = get_token_to_string(lookahead);
+
+        // Buffers to hold single character tokens if they are not recognized
+        char expected_buf[2];
+        char lookahead_buf[2];
+
+        // If the expected token string is NULL, convert the expected token to a string
+        if (expected_str == NULL)
+        {
+            sprintf(expected_buf, "%c", expected);
+            expected_str = expected_buf;
+        }
+
+        // If the current token string is NULL, convert the current token to a string
+        if (lookahead_str == NULL)
+        {
+            sprintf(lookahead_buf, "%c", lookahead);
+            lookahead_str = lookahead_buf;
+        }
+
+        // Print a syntax error message with the expected and received tokens and the line number
+        fprintf(stderr, "\tSyntax error. expected: %s - recieved: %s in line: %d\n", expected_str, lookahead_str, linenum);
         exit(-1);
     }
 }
