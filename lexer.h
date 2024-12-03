@@ -19,7 +19,10 @@ typedef enum _token_
     TYPE
 }EToken;
 
+
+extern char *tokens[];
 extern char lexeme[];
+extern int linenum;
 
 extern int gettoken(FILE *p_source);
-extern int linenum;
+extern char* get_token_to_string(int token);

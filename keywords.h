@@ -29,3 +29,4 @@ typedef enum _keyword_
 extern char *keyword[];
 
 extern int iskeyword(char *word);
+extern int is_token_keyword(int token);

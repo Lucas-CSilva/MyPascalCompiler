@@ -38,3 +38,8 @@ int iskeyword(char *word)
 
     return 0;
 }
+
+int is_token_keyword(int token)
+{
+    return (token >= BEGIN && token <= END);
+}

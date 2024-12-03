@@ -3,8 +3,23 @@
 #include <keywords.h>
 #include <lexer.h>
 
+char *tokens[] = {
+    "id",
+    "oct",
+    "hex",
+    "num",
+    "asgn",
+    "less",
+    "greater",
+    "leq",
+    "geq",
+    "neq",
+    "equal",
+    "type"
+};
+
 char lexeme[MAXIDLEN + 1];
-int linenum = 0;
+int linenum = 1;
 
 void clear_lexeme(int index);
 void skip_spaces(FILE *p_tape);
@@ -12,6 +27,7 @@ int is_ID(FILE *p_tape);
 int is_ASGN(FILE *p_tape);
 int is_NUM(FILE *p_tape);
 int isRELOP(FILE *p_tape);
+int istoken(int token);
 
 #pragma region Public Functions
 int gettoken(FILE *p_source)
@@ -27,6 +43,23 @@ int gettoken(FILE *p_source)
 
     return token = getc(p_source);
 }
+
+char* get_token_to_string(int token)
+{    
+    if (is_token_keyword(token)) 
+    {
+        return keyword[token - BEGIN];
+    }
+
+    if (istoken(token))
+    {
+        return tokens[token - ID];
+    }
+
+    return NULL;
+}
+
+
 #pragma endregion
 
 #pragma region Private Functions
@@ -263,5 +296,10 @@ int isRELOP (FILE *tape)
 
     ungetc(lexeme[0], tape);
     return 0;
+}
+
+int istoken(int token)
+{
+    return token >= ID && token <= TYPE;
 }
 #pragma endregion
