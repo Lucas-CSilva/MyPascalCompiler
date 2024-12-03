@@ -38,121 +38,178 @@ void program(void)
 
     block();
     symtab_next_entry = 0;
-    // symtab_next_entry = 0;
-    printf("\n\n================================================================================================================\n");
-    
-    printf("symtab_next_entry: %d\n", symtab_next_entry);
-    
-    printf("%-*s | %-*s | %-*s | %-*s | %-*s | %-*s\n", COLUMN_SIZE, "NAME" , COLUMN_SIZE, "OBJTYPE", COLUMN_SIZE, "TYPE", COLUMN_SIZE, "LEXLEVEL", COLUMN_SIZE, "PARMFLAG", COLUMN_SIZE, "REFFLAG");
-    for (int i = 0; i < symtab_next_entry; i++){
-        printf("%-*s | %-*d | %-*d | %-*d | %-*d | %-*d\n", COLUMN_SIZE, symtab[i].name, COLUMN_SIZE, symtab[i].objtype, COLUMN_SIZE, symtab[i].type, COLUMN_SIZE, symtab[i].lexlevel, COLUMN_SIZE, symtab[i].parmflag, COLUMN_SIZE, symtab[i].referenceflag);
-    }
-    printf("================================================================================================================\n\n");
+    //printsymtab();
 }
 
 
+/// @brief Parses a list of identifiers.
+/// @return The index of the first identifier in the symbol table.
 int idlist(void)
 {
+    /*0*/
+    // Declare a variable to store the error status
     int error_stat = 0;
-    int first = symtab_next_entry;
+    /*0*/
+
+    /*1*/
+    // Store the current value of symtab_next_entry as the first identifier position
+    int first_symtab_entry = symtab_next_entry;
+    /*1*/
+
 _idlist:
+    /*2*/
+    // Append the current lexeme to the symbol table and store the error status
     error_stat = symtab_append(lexeme, lexlevel);
 
+    // If there is an error (symbol already defined)
     if (error_stat)
     {
-        fprintf(stderr, "\tFATAL ERROR: symbol '%s' already defined\n", lexeme);
+        // Print a fatal error message with the symbol name
+        fprintf(stderr, "\tFATAL ERROR(ln: %d): symbol '%s' already defined\n", linenum, lexeme);
+        // Increment the error count
         error_count++;
     }
+    /*2*/
 
+    // Match the identifier and advance to the next token
     match(ID);
+    // If the current token is a comma
     if (lookahead == ',')
     {
+        // Match the comma and advance to the next token
         match(',');
+        // Go to the _idlist label to parse more identifiers
         goto _idlist;
     }
 
-    return first;
+    // Return the index of the first identifier in the symbol table
+    return first_symtab_entry;
 }
 
-//statment list
+/// @brief Parses a list of statements.
 void stmtlist(void)
 {
 _stmtlst:
+    // Parse a statement
     stmt();
+    // If the current token is a semicolon
     if (lookahead == ';')
     {
+        // Match the semicolon and advance to the next token
         match(';');
+        // Go to the _stmtlst label to parse more statements
         goto _stmtlst;
     }
 }
 
+/// @brief Parses a statement.
 void stmt(void)
 {
+    // Switch based on the current token
     switch (lookahead)
     {
         case ID:
+            // Parse an identifier statement (assignment or function/procedure call)
             idstmt();
             break;
         case BEGIN:
+            // Parse a begin-end block
             beginend();
             break;
         case IF:
+            // Parse an if statement
             ifstmt();
             break;
         case WHILE:
+            // Parse a while statement
             whilestmt();
             break;
         case REPEAT:
+            // Parse a repeat statement
             repstmt();
             break;
         default:
+            // Do nothing for unrecognized statements
             break;
     }
 }
 
+/// @brief Parses an identifier statement (assignment or function/procedure call).
 void idstmt(void)
 {
+    /*0*/
+    // Look up the identifier in the symbol table and store its position
     int id_position = symtab_lookup(lexeme, lexlevel);
+    /*0*/
+
+    /*1*/
+    // If the identifier is not found in the symbol table
     if (id_position < 0)
     {
-        fprintf(stderr, "\tFATAL ERROR: symbol '%s' not defined\n", lexeme);
+        // Print a fatal error message with the symbol name
+        fprintf(stderr, "\tFATAL ERROR(ln: %d): symbol '%s' not defined\n", linenum, lexeme);
+        // Increment the error count
         error_count++;
     }
+    /*1*/
 
+    // Match the identifier and advance to the next token
     match(ID);
+    // If the current token is an assignment operator
     if (lookahead == ASGN){
+        // Match the assignment operator and advance to the next token
         match(ASGN);
+        // Parse the expression
         expr();
     }
+    // Otherwise, assume it's a function/procedure call
     else{
+        // Parse the list of expressions
         exprlist();
     }
 }
 
+/// @brief Parses an if statement.
 void ifstmt(void){
+    // Match the IF keyword and advance to the next token
     match(IF);
+    // Parse the expression
     expr();
-    printf("\ttaqui, %s\n", lexeme);
+    // Match the THEN keyword and advance to the next token
     match(THEN);
+    // Parse the statement
     stmt();
 
+    // If the current token is ELSE
     if (lookahead == ELSE){
+        // Match the ELSE keyword and advance to the next token
         match(ELSE);
+        // Parse the statement
         stmt();
     }
 }
 
+/// @brief Parses a while statement.
 void whilestmt(void){
+    // Match the WHILE keyword and advance to the next token
     match(WHILE);
+    // Parse the expression
     expr();
+    // Match the DO keyword and advance to the next token
     match(DO);
+    // Parse the statement
     stmt();
 }
 
+/// @brief Parses a repeat statement.
 void repstmt(void){
+    // Match the REPEAT keyword and advance to the next token
     match(REPEAT);
+    // Parse the list of statements
     stmtlist();
+    // Match the UNTIL keyword and advance to the next token
     match(UNTIL);
+    // Parse the expression
     expr();
 }
 
@@ -166,96 +223,123 @@ int isrelop(void)
         || lookahead == EQUAL;
 }
 
+/// @brief Parses an expression.
 void expr(void){
+    // Parse a simple expression
     smpexpr();
+    // If the current token is a relational operator
     if (isrelop()){
+        // Match the relational operator and advance to the next token
         match(lookahead);
+        // Parse another simple expression
         smpexpr();
     }
 }
 
+/// @brief Parses a simple expression.
 void smpexpr(void){
+    // If the current token is a plus or minus operator
     if (lookahead == '+' || lookahead == '-')
     {
+        // Match the operator and advance to the next token
         match(lookahead);
     }
 
+    // Parse the list of terms
     termlist();
 }
 
+/// @brief Parses a list of terms in an expression.
 void termlist(void)
 {
+    // Parse a term
     term();
 
-    _termlist:
-        if (lookahead == '+' || lookahead == '-' || lookahead == OR)
-        {
-            match(lookahead);
-            term();
-
-            goto _termlist;
-        }
+_termlist:
+    // If the current token is a plus, minus, or OR operator
+    if (lookahead == '+' || lookahead == '-' || lookahead == OR)
+    {
+        // Match the operator and advance to the next token
+        match(lookahead);
+        // Parse another term
+        term();
+        // Go to the _termlist label to parse more terms
+        goto _termlist;
+    }
 }
 
+/// @brief Parses a term in an expression.
 void term(void)
 {
+    // Parse a factor
     factor();
 
-    _factorlist:
-        if (lookahead == '*' || lookahead == '/' || lookahead == DIV || lookahead == MOD || lookahead == AND)
-        {
-            match(lookahead);
-            factor();
-            goto _factorlist;
-        }
+_factorlist:
+    // If the current token is a multiplication, division, DIV, MOD, or AND operator
+    if (lookahead == '*' || lookahead == '/' || lookahead == DIV || lookahead == MOD || lookahead == AND)
+    {
+        // Match the operator and advance to the next token
+        match(lookahead);
+        // Parse another factor
+        factor();
+        // Go to the _factorlist label to parse more factors
+        goto _factorlist;
+    }
 }
 
+/// @brief Parses a factor in an expression.
 void factor(void)
 {
-    int index_id = 0;
+    /*0*/
+    // Declare a variable to store the index of the identifier in the symbol table
+    int index_identifier = 0;
+    /*0*/
 
     switch (lookahead)
     {
-        // case INTEGER:
-        //     match(INTEGER);
-        //     break;
-        
-        // case DOUBLE:
-        //     match(DOUBLE);
-        //     break;
-        
-        // case REAL:
-        //     match(REAL);
-        //     break;
-        
-        // case BOOLEAN:
-        //     match(BOOLEAN);
-        //     break;
-
         case ID:
-            printf("\tlexeme antes do match %s - %d\n", lexeme, lookahead);
-            index_id = symtab_lookup(lexeme, lexlevel);
-
-            if (index_id == -1)
+            
+            /*1*/
+            // Look up the identifier in the symbol table
+            index_identifier = symtab_lookup(lexeme, lexlevel);
+            
+            // If the identifier is not found in the symbol table
+            if (index_identifier == -1)
             {
-                fprintf(stderr, "\tFATAL ERROR: symbol '%s' not defined\n", lexeme);
+                // Print a fatal error message with the symbol name
+                fprintf(stderr, "\tFATAL ERROR(ln: %d): symbol '%s' not defined\n", linenum, lexeme);
+                
+                // Increment the error count
                 error_count++;
             }
+            /*1*/
 
+            // Match the identifier and advance to the next token
             match(ID);
+
+            // If the current token is an assignment operator
             if (lookahead == ASGN)
             {
+                // Match the assignment operator and advance to the next token
                 match(ASGN);
+                // Parse the expression
                 expr();
             }
+            // If the current token is an opening parenthesis
             else if (lookahead == '(')
             {
-                if (symtab[index_id].objtype != TYPE_FUNCTION)
+                /*1*/
+                // If the object type of the identifier is not a function than the identifier is not callable
+                if (symtab[index_identifier].objtype != TYPE_FUNCTION)
                 {
-                    fprintf(stderr, "\tFATAL ERROR: expression preceding parenthesis of apperent call must have function type\n");
+                    // Print a fatal error message
+                    fprintf(stderr, "\tFATAL ERROR(ln: %d): expression preceding parenthesis of apparent call must have function type\n", linenum);
+                    // Increment the error count
                     error_count++;
                 }
-
+                /*1*/
+                
+                // Parse the list of expressions
                 exprlist();
             }
             break;
@@ -264,18 +348,20 @@ void factor(void)
         case DOUBLE:
         case REAL:
         case BOOLEAN:
-        // case ID:
-        //     printf("\tlexeme antes do match %s - %d\n", lexeme, lookahead);
             match(lookahead);
             break;
 
         case FUNCTION:
+            // Match the FUNCTION keyword and advance to the next token
             match(FUNCTION);
+            // Parse the list of expressions
             exprlist();
             break;
 
         case NOT:
+            // Match the NOT keyword and advance to the next token
             match(NOT);
+            // Parse the factor
             factor();
             break;
 
@@ -285,56 +371,104 @@ void factor(void)
     }
 }
 
+/// @brief Parses a list of expressions.
 void exprlist(void){
+    // If the current token is an opening parenthesis
     if (lookahead == '('){
         match('(');
 _exprlist:
+        // Parse an expression
         expr();
+
+        // If the current token is a comma
         if (lookahead == ','){
+            
             match(',');
+            
+            // Go to the _exprlist label to parse more expressions
             goto _exprlist;
         }
 
+        // Match the closing parenthesis and advance to the next token
         match(')');
     }
 }
 
+/// @brief Parses a begin-end block.
 void beginend(void)
 {
+    // Match the BEGIN keyword and advance to the next token
     match(BEGIN);
+    // Parse the list of statements
     stmtlist();
+    // Match the END keyword and advance to the next token
     match(END);
 }
 
+/// @brief Parses a block of code, including variable definitions, subprogram definitions, and a begin-end block.
 void block(void){
+    // Parse variable definitions
     vardef();
+
+    /*0*/
+    // Store the current value of symtab_next_entry in a local variable
     int local_next_entry = symtab_next_entry;
+
+    // Parse subprogram definitions and update the local_next_entry
+    sbprgdef(&local_next_entry); // If it's a subprogram, the name will be in the symbol table, so it's necessary to increment next_entry
+    /*0*/
     
-    sbprgdef(&local_next_entry); // caso seja um subprograma o nome estará na tabela de simbolos, por isso é necesário incrementar o next_entry
+    // Parse the begin-end block
     beginend();
 
-    printsymtab();
+    //printsymtab();
+
+    /*0*/
+    // Update symtab_next_entry with the local_next_entry value. Remove the tokens read in the subprogram symbol from the table
     symtab_next_entry = local_next_entry;
-    printsymtab();
+    /*0*/
+
+    //printsymtab();
 }
 
+/// @brief Parses variable definitions.
 void vardef(void)
 {
-    int ret_type, first;
+    /*0*/
+    // Declare variables to store the return type and the first identifier position in the symbol table
+    int ret_type = 0, first_symtab_entry = 0;
+    /*0*/
 
     if (lookahead == VAR){
         match(VAR);
 _idlist:
-        first = idlist();
+        /*1*/
+        // Parse the identifier list and store the first identifier position in the symbol table
+        first_symtab_entry = idlist();
+        /*1*/
+
+        // Match the colon and advance to the next token
         match(':');
+        
+        /*1*/
+        // Determine the type of the variables
         ret_type = type();
+        /*1*/
+        
+        // Match the semicolon and advance to the next token
         match(';');
 
-        symtab_set_range_type(first, ret_type, TYPE_VARIABLE, 0, 0);
+        /*2*/
+        // Set the range type in the symbol table for the parsed identifiers
+        symtab_set_range_type(first_symtab_entry, ret_type, TYPE_VARIABLE, 0, 0);
+        /*2*/
 
+        // If the current token is an identifier
         if (lookahead == ID)
+        {
+            // Go to the _idlist label to parse more identifiers
             goto _idlist;
-        
+        }
     }
 }
 
@@ -376,7 +510,7 @@ void sbprgdef(int *caller_symtab_next_entry)
         // If there is an error (symbol already defined)
         if (error_stat)
         {
-            fprintf(stderr, "\tFATAL ERROR: symbol '%s' already defined\n", lexeme);
+            fprintf(stderr, "\tFATAL ERROR(ln: %d): symbol '%s' already defined\n", linenum, lexeme);
             error_count++;
         }
         /*1*/

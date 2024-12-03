@@ -24,5 +24,5 @@ extern char *tokens[];
 extern char lexeme[];
 extern int linenum;
 
-extern int gettoken(FILE *p_source);
+extern int gettoken(FILE *source);
 extern char* get_token_to_string(int token);
