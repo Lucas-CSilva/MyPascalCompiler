@@ -1,11 +1,5 @@
 # MyPascalCompiler
 
-Claro, aqui está uma sugestão de `README.md` para o seu projeto, com base nos arquivos que você enviou.
-
------
-
-# MyPascalCompiler
-
 Um compilador simples para um subconjunto da linguagem de programação Pascal, desenvolvido em C. Este projeto foi criado como um exercício acadêmico para demonstrar os conceitos fundamentais da construção de compiladores.
 
 ## Funcionalidades
