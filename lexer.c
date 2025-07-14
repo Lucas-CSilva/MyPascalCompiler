@@ -204,53 +204,51 @@ int is_ID(FILE *tape)
 /// (uint.[0−9]∗|′.′[0−9]+)([eE][′+′′−′]?[0−9]+)?|uint[eE][′+′′−′]?[0-9]+</para>
 /// @param tape The input tape
 /// @return NUM if the next token read is a number, 0 otherwise
-int isNUM(FILE *tape)
+int is_NUM(FILE *p_tape)
 {
     int i = 0;
 
-    lexeme[i] = getc(tape);
-
-    // a number can begin with a digit or a dot: 1 or .1
-    if (!is_valid_start_of_num(lexeme[i])) // if the first char is not a digit or a dot then it is not a NUM
+    lexeme[i] = getc(p_tape);
+    if (!isdigit(lexeme[i]) && !is_dot(lexeme[i])) // if the first char is not a digit or a dot then it is not a NUM
     {
-        ungetc(lexeme[i], tape);
+        ungetc(lexeme[i], p_tape);
         clear_lexeme(i);
         return 0;
     }
 
-    // if the first char is a dot then it must be followed by a digit: .1
     if (is_dot(lexeme[i]))
     {
         i++;
-        if (!isdigit(lexeme[i] = getc(tape))) 
+        if (!isdigit(lexeme[i] = getc(p_tape)) && !is_exp_indicator(lexeme[i])) 
         {
-            unget_all_read_characters(tape, i);
+            unget_all_read_characters(p_tape, i);
+            clear_lexeme(i);
             return 0;
         }
-        
+
     }
 
-    // if the first char is a digit then it is a NUM
+
     if (isdigit(lexeme[i]))
     {
         i++;
-        while (isdigit(lexeme[i] = getc(tape))) i++; //while the next caracter is a digit, reads the tape
+        while (isdigit(lexeme[i] = getc(p_tape))) i++; //while the next caracter is a digit, reads the tape
 
         if (!is_dot(lexeme[i]) && !is_exp_indicator(lexeme[i])) // if the next char is not a dot or an exp indicator then it is a NUM
         {
-            ungetc(lexeme[i], tape);
+            ungetc(lexeme[i], p_tape);
             clear_lexeme(i);
             return NUM;
         }
     }
 
-    // if the read character is a dot then it is a NUM
+
     if (is_dot(lexeme[i]))
     {
         i++;
-        if (!isdigit(lexeme[i] = getc(tape)) && !is_exp_indicator(lexeme[i]))// if the next char is not a digit or an exp indicator then the number sequence ended
+        if (!isdigit(lexeme[i] = getc(p_tape)) && !is_exp_indicator(lexeme[i])) 
         {
-            ungetc(lexeme[i], tape);
+            ungetc(lexeme[i], p_tape);
             clear_lexeme(i);
             return NUM;
         }
@@ -258,34 +256,32 @@ int isNUM(FILE *tape)
         if (is_exp_indicator(lexeme[i])) goto _HANDLE_EXP;//verificar 1.e8
 
         i++;
-        while (isdigit(lexeme[i] = getc(tape))) i++; // read the tape until the end of the digit sequence
+        while (isdigit(lexeme[i] = getc(p_tape))) i++; // le ate encontrar um char diferente de digito
 
-        if (!is_exp_indicator(lexeme[i])) // if the next char is not an exp indicator then the number sequence ended
+        if (!is_exp_indicator(lexeme[i])) 
         {
-            ungetc(lexeme[i], tape);
+            ungetc(lexeme[i], p_tape);
             clear_lexeme(i);
             return NUM;
         }
     }
 
-// reads the exp indicator
 _HANDLE_EXP:
         i++;
-        lexeme[i] = getc(tape);
-        if (!isdigit(lexeme[i]) && lexeme[i] != '+' && lexeme[i] != '-') // if the next char is not a digit or a sign then it is not a NUM
+        lexeme[i] = getc(p_tape);
+        if (!isdigit(lexeme[i]) && lexeme[i] != '+' && lexeme[i] != '-') 
         {
-            unget_all_read_characters(tape, i);
+            unget_all_read_characters(p_tape, i);
             return 0;
         }
 
         i++;
-        while (isdigit(lexeme[i] = getc(tape))) i++; // read the tape until the end of the digit sequence
-        
-        ungetc(lexeme[i], tape);
+        while (isdigit(lexeme[i] = getc(p_tape))) i++; 
+
+        ungetc(lexeme[i], p_tape);
         clear_lexeme(i);
         return NUM;
 }
-
 
 /// @brief Identifies if the next token in the tape is a relational operator
 int isRELOP (FILE *tape)
